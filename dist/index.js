@@ -1,39 +1,92 @@
 #!/usr/bin/env node
 import { program } from "commander";
-import { detectNpmVersion, detectOperatingSystem } from "./utils.js";
-console.log("Hello, World, from commander!");
+import { detectJavaVersion, detectNodeVersion, detectNpmVersion, detectOperatingSystem, detectProjects } from "./blocks.js";
+import { input } from "@inquirer/prompts";
+import { exec } from "node:child_process";
 program
     .name('fullstack-cli')
     .description('Description: An opinionated tool to manage a fullstack project')
     .version('1.0.0');
 program
-    .command('menu')
-    .description('Shows a list of available commands')
+    .command("interactive")
+    .description("Runs terminnal in react mode, making it interactive")
     .action(async () => {
-    console.log("Available commands:");
-    console.log("1. menu - Shows a list of available commands");
-    console.log("2. status - Shows the status of the project");
+    console.log("Running in react mode...");
+    console.log("This mode is not implemented yet, but it will allow you to interact with the CLI in a more user-friendly way, using prompts and interactive menus.");
 });
 program
     .command('status')
     .description('Shows the status of the project')
     .action(async () => {
     console.log("Status:");
-    // Detect the operating system, and print it to the console
-    // It may be useful, to change commands for managing sdks
     const platform = detectOperatingSystem();
-    console.log(`Installed system: windows, or linux : ${platform}`);
-    const nodeVersion = process.version;
+    const nodeVersion = detectNodeVersion();
     const npmVersion = await detectNpmVersion();
-    console.log("Installed sdks: node, npm, java : ");
-    console.log(`Node version: ${nodeVersion}`);
-    console.log(`Npm version: ${npmVersion}`);
-    console.log("Projects in current directory : ");
-    console.log("1.1. Documentation project, usig docosaur : ");
-    console.log("1.2. Admin documenation project, using docosaur : ");
-    console.log("2.1. Frontend project, using nextjs static export, or SSR : ");
-    console.log("3.1. Backend project, using springboot, or node express : ");
-    console.log("4.1. Mobile project, using expo react native : ");
+    const javaVersion = await detectJavaVersion();
+    const projects = await detectProjects();
+    if (!platform) {
+        console.log("Your operating system is currenlty not supported.");
+    }
+    if (!nodeVersion || !npmVersion || !javaVersion) {
+        console.log("Some tools are not detected, please make sure you have node, npm and java installed.");
+    }
+});
+program
+    .command(`status-os`)
+    .description('Shows the operating system of the user')
+    .action(async () => {
+    const os = detectOperatingSystem();
+});
+program
+    .command(`status-node`)
+    .description('Shows the node version of the user')
+    .action(async () => {
+    const nodeVersion = detectNodeVersion();
+});
+program.command(`status-npm`)
+    .description('Shows the npm version of the user')
+    .action(async () => {
+    const npmVersion = await detectNpmVersion();
+});
+program.command(`status-java`)
+    .description('Shows the java version of the user')
+    .action(async () => {
+    const javaVersion = await detectJavaVersion();
+});
+program.command(`status-projects`)
+    .description('Shows the projects detected in the current directory')
+    .action(async () => {
+    const projects = await detectProjects();
+});
+program.command(`init-documentation`)
+    .description(`Initialize a new documentation project`)
+    .argument('[string]', 'project name')
+    .action(async (projectNameOption) => {
+    let projectNameInput = null;
+    let projectName = "";
+    if (!projectNameOption) {
+        projectNameInput = await input({ message: 'Enter project name' });
+        if (!projectNameInput) {
+            console.log("Project name is required.");
+        }
+    }
+    projectName = projectNameOption ? projectNameOption :
+        projectNameInput ? projectNameInput : null;
+    if (projectName) {
+        console.log("Initializing documentation project with name: " + projectName);
+        const command = `npx create-docusaurus@latest ${projectName} classic --typescript`;
+        console.log("Running command: " + command);
+        const process = exec(command, (error, stdout, stderr) => { });
+        process.stdout?.on("data", (data) => {
+            console.log(data);
+        });
+        process.stderr?.on("data", (data) => {
+            console.error(data);
+        });
+        process.on("close", (code) => {
+            console.log(`Process exited with code ${code}`);
+        });
+    }
 });
 program.parse();
 //# sourceMappingURL=index.js.map
