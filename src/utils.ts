@@ -1,5 +1,7 @@
 import { exec } from "child_process";
-import type { ProjectType } from "./types.js";
+import { readdir } from "fs/promises";
+import type { Projects, ProjectType } from "./types.js";
+import { readFileSync } from "fs";
 
 export const getOperatingSystem = () : "windows" | "linux" | null => {
     return process.platform.includes("win")   ? "windows" :
@@ -26,30 +28,38 @@ export const getNpmVersion = async () : Promise<string | null> => {
 
 export const getJavaVersion = async () : Promise<string | null> => {    
     return new Promise((resolve) => {
-        exec("java -version", (error, stdout, stderr) => {
+        exec("java --version", (error, stdout, stderr) => {
             if (error) {                
                 resolve(null);            
-            } else if ( stderr) {
+            } else if ( stderr ) {
                 resolve(null);
             } else {
-                resolve(stdout.trim());
+                const versionLine = stdout.trim().split("\n")[0];
+                resolve( versionLine ? versionLine : null );
             }        
         });
     });    
 }
 
-export const getDocumentationProjects = async () : Promise<[{ name : string, type : ProjectType }] | []> => {
-    return []
-}
+export const getProjectsInSubfolders = async ( projectType : ProjectType ) : Promise<{[ key : string ] : ProjectType }> => {
+    let projects : Projects = {};
+    
+    const entries = await readdir(process.cwd(), { withFileTypes: true });
+    const folders = entries
+        .filter(entry => entry.isDirectory())
+        .map(directory => directory.name);
+    
+    for( const folder of folders ) {
+        const folderEntries = await readdir(`${process.cwd()}/${folder}`, { withFileTypes: true });
+        const packageJsonFile = folderEntries.find(entry => entry.isFile() && entry.name === "package.json");
+        if (packageJsonFile) {
+            const packageJsonPath = `${process.cwd()}/${folder}/package.json`;
+            const packageJson = JSON.parse(readFileSync(packageJsonPath, "utf-8"));
+            if (packageJson.dependencies && packageJson.dependencies[projectType.packageJsonDependancy]) {
+                projects[folder] = projectType;
+            }
+        }
+    }
 
-export const getFronendProjects = async () : Promise<[{ name : string, type : ProjectType }] | []> => {
-    return []
-}
-
-export const getBackendProjects = async () : Promise<[{ name : string, type : ProjectType }] | []> => {
-    return []
-}
-
-export const getMobileProjects = async () : Promise<[{ name : string, type : ProjectType }] | []> => {
-    return []
+    return projects;
 }

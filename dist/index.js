@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { program } from "commander";
 import { detectJavaVersion, detectNodeVersion, detectNpmVersion, detectOperatingSystem, detectProjects } from "./blocks.js";
-import { input } from "@inquirer/prompts";
+import { input, select } from "@inquirer/prompts";
 import { exec } from "node:child_process";
 program
     .name('fullstack-cli')
@@ -61,9 +61,12 @@ program.command(`status-projects`)
 program.command(`init-documentation`)
     .description(`Initialize a new documentation project`)
     .argument('[string]', 'project name')
-    .action(async (projectNameOption) => {
+    .argument('[string]', 'framework to use (default: docusaurus)')
+    .action(async (projectNameOption, frameworkNameOption) => {
     let projectNameInput = null;
     let projectName = "";
+    let frameworkNameInput = "";
+    let frameworkName = '';
     if (!projectNameOption) {
         projectNameInput = await input({ message: 'Enter project name' });
         if (!projectNameInput) {
@@ -72,11 +75,22 @@ program.command(`init-documentation`)
     }
     projectName = projectNameOption ? projectNameOption :
         projectNameInput ? projectNameInput : null;
+    if (!frameworkNameOption) {
+        frameworkNameInput = await select({ message: 'Select framework', choices: ['docusaurus'] });
+        if (!frameworkNameInput) {
+            console.log("Framework name is required.");
+        }
+    }
+    frameworkName = frameworkNameOption ? frameworkNameOption :
+        frameworkNameInput ? frameworkNameInput : null;
     if (projectName) {
         console.log("Initializing documentation project with name: " + projectName);
-        const command = `npx create-docusaurus@latest ${projectName} classic --typescript`;
-        console.log("Running command: " + command);
-        const process = exec(command, (error, stdout, stderr) => { });
+        let command = "";
+        if (frameworkName === 'docusaurus') {
+            command = `npx create-docusaurus@latest ${projectName} classic --typescript`;
+            console.log("Running command: " + command);
+        }
+        const process = exec(command);
         process.stdout?.on("data", (data) => {
             console.log(data);
         });
@@ -84,7 +98,120 @@ program.command(`init-documentation`)
             console.error(data);
         });
         process.on("close", (code) => {
-            console.log(`Process exited with code ${code}`);
+            if (code === 0) {
+                console.log("Documentation project initialized successfully.");
+            }
+            else {
+                console.error("Failed to initialize documentation project with exit code: " + code);
+            }
+        });
+    }
+});
+program.command(`init-frontend`)
+    .description(`Initialize a new frontend project`)
+    .argument('[string]', 'project name')
+    .argument('[string]', 'framework to use (default: next)')
+    .action(async (projectNameOption, frameworkNameOption) => {
+    let projectNameInput = null;
+    let projectName = "";
+    let frameworkNameInput = "";
+    let frameworkName = '';
+    if (!projectNameOption) {
+        projectNameInput = await input({ message: 'Enter project name' });
+        if (!projectNameInput) {
+            console.log("Project name is required.");
+        }
+    }
+    projectName = projectNameOption ? projectNameOption :
+        projectNameInput ? projectNameInput : null;
+    if (!frameworkNameOption) {
+        frameworkNameInput = await select({ message: 'Select framework', choices: ['next'] });
+        if (!frameworkNameInput) {
+            console.log("Framework name is required.");
+        }
+    }
+    frameworkName = frameworkNameOption ? frameworkNameOption :
+        frameworkNameInput ? frameworkNameInput : null;
+    if (projectName) {
+        console.log("Initializing frontend project with name: " + projectName);
+        let command = "";
+        if (frameworkName === 'next') {
+            command = `npx create-next-app@latest ${projectName} --typescript --react-compiler --eslint --app --turbopack --use-npm --no-tailwind --src-dir --yes`;
+        }
+        console.log("Running command: " + command);
+        const process = exec(command);
+        process.stdout?.on("data", (data) => {
+            console.log(data);
+        });
+        process.stderr?.on("data", (data) => {
+            console.error(data);
+        });
+        process.on("close", (code) => {
+            if (code === 0) {
+                console.log("Documentation project initialized successfully.");
+            }
+            else {
+                console.error("Failed to initialize documentation project with exit code: " + code);
+            }
+        });
+    }
+});
+program.command(`init-backend`)
+    .description(`Initialize a new backend project`)
+    .argument('[string]', 'project name')
+    .argument('[string]', 'framework to use')
+    .action(async (projectNameOption, frameworkNameOption) => {
+    let projectNameInput = null;
+    let projectName = "";
+    let frameworkNameInput = "";
+    let frameworkName = '';
+    let command = new Array();
+    if (!projectNameOption) {
+        projectNameInput = await input({ message: 'Enter project name' });
+        if (!projectNameInput) {
+            console.log("Project name is required.");
+        }
+    }
+    projectName = projectNameOption ? projectNameOption :
+        projectNameInput ? projectNameInput : null;
+    if (frameworkNameOption !== "express") {
+        frameworkNameInput = await select({ message: 'Select framework', choices: ['express'] });
+        if (!frameworkNameInput) {
+            console.log("Framework name is required.");
+        }
+        command = [`mkdir ${projectName}`, `cd ${projectName}`, `npm install express`];
+    }
+    frameworkName = frameworkNameOption ? frameworkNameOption :
+        frameworkNameInput ? frameworkNameInput : null;
+    if (projectName && frameworkName && command[0] && command[1] && command[2]) {
+        console.log("Initializing backend project with name: " + projectNameOption + " and framework: " + frameworkNameOption);
+        const process = exec(command[0]);
+        process.on("close", (code) => {
+            if (code === 0 && command[1]) {
+                const process1 = exec(command[1]);
+                process1.on("close", (code) => {
+                    if (code === 0 && command[2]) {
+                        const process2 = exec(command[2]);
+                        process2.stdout?.on("data", (data) => {
+                            console.log(data);
+                        });
+                        process2.stderr?.on("data", (data) => {
+                            console.error(data);
+                        });
+                        process2.on("close", (code) => {
+                            if (code === 0) {
+                                console.log("Express project initialized successfully.");
+                            }
+                            else {
+                                console.error("Failed to initialize documentation project with exit code: " + code);
+                            }
+                        });
+                    }
+                });
+            }
+            else {
+                console.error("Failed to create a folder for a project");
+            }
         });
     }
 });

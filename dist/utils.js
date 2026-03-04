@@ -1,4 +1,6 @@
 import { exec } from "child_process";
+import { readdir } from "fs/promises";
+import { readFileSync } from "fs";
 export const getOperatingSystem = () => {
     return process.platform.includes("win") ? "windows" :
         process.platform.includes("linux") ? "linux" : null;
@@ -23,7 +25,7 @@ export const getNpmVersion = async () => {
 };
 export const getJavaVersion = async () => {
     return new Promise((resolve) => {
-        exec("java -version", (error, stdout, stderr) => {
+        exec("java --version", (error, stdout, stderr) => {
             if (error) {
                 resolve(null);
             }
@@ -31,21 +33,29 @@ export const getJavaVersion = async () => {
                 resolve(null);
             }
             else {
-                resolve(stdout.trim());
+                const versionLine = stdout.trim().split("\n")[0];
+                resolve(versionLine ? versionLine : null);
             }
         });
     });
 };
-export const getDocumentationProjects = async () => {
-    return [];
-};
-export const getFronendProjects = async () => {
-    return [];
-};
-export const getBackendProjects = async () => {
-    return [];
-};
-export const getMobileProjects = async () => {
-    return [];
+export const getProjectsInSubfolders = async (projectType) => {
+    let projects = {};
+    const entries = await readdir(process.cwd(), { withFileTypes: true });
+    const folders = entries
+        .filter(entry => entry.isDirectory())
+        .map(directory => directory.name);
+    for (const folder of folders) {
+        const folderEntries = await readdir(`${process.cwd()}/${folder}`, { withFileTypes: true });
+        const packageJsonFile = folderEntries.find(entry => entry.isFile() && entry.name === "package.json");
+        if (packageJsonFile) {
+            const packageJsonPath = `${process.cwd()}/${folder}/package.json`;
+            const packageJson = JSON.parse(readFileSync(packageJsonPath, "utf-8"));
+            if (packageJson.dependencies && packageJson.dependencies[projectType.packageJsonDependancy]) {
+                projects[folder] = projectType;
+            }
+        }
+    }
+    return projects;
 };
 //# sourceMappingURL=utils.js.map

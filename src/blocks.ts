@@ -1,4 +1,4 @@
-import { getBackendProjects, getDocumentationProjects, getFronendProjects, getJavaVersion, getMobileProjects, getNodeVersion, getNpmVersion, getOperatingSystem } from "./utils.js";
+import { getJavaVersion, getNodeVersion, getNpmVersion, getOperatingSystem, getProjectsInSubfolders } from "./utils.js";
 import type { ProjectType } from "./types.js";
 
 /**
@@ -30,57 +30,108 @@ export const detectJavaVersion = async () : Promise<string | null> => {
 }
 
 export const detectProjects = async () : Promise<{[ key : string ] : ProjectType }> => {
-    const documentationProjects = await getDocumentationProjects();
-    const frontendProjects      = await getFronendProjects();
-    const backendProjects       = await getBackendProjects();
-    const mobileProjects        = await getMobileProjects();
+ 
+    let projects : { [ key : string ] : ProjectType } = {};
+    
+    // Documentation projects
+    const docosaurusProjects = await getProjectsInSubfolders({ 
+        type : "documentation", 
+        framework : "docosaurus",
+        packageJsonDependancy : "@docusaurus/core"
+    });
+    const nextProjects = await getProjectsInSubfolders({
+        type : "frontend",
+        framework : "next",
+        packageJsonDependancy : "next"
+    });
 
-    if( documentationProjects.length === 0 && frontendProjects.length === 0 && backendProjects.length === 0 && mobileProjects.length === 0 ) {
-        console.log("No projects detected in current directory.");
-        return {};
+    // Frontend projects, with duplicates from documentation and next projects
+    let reactProjects = await getProjectsInSubfolders({ 
+        type :"frontend",
+        framework :"react",
+        packageJsonDependancy : "react"
+    });
+    // Removing duplicates from documenation projects and next project, since they also have react as a dependancy
+    for( const projectName in reactProjects ){
+        if( Object.keys(docosaurusProjects).includes(projectName) || 
+            Object.keys(nextProjects).includes(projectName)
+        ){
+            delete reactProjects[projectName];
+        }
     }
 
-    console.log(`Projects detected in current directory : `);
-    let projects : { [ key : string ] : ProjectType } = {};    
-        
-    if (documentationProjects.length > 0) {
-        console.log("Documentations: ")
-        documentationProjects.forEach( (projectName) => {
-            console.log(`- ${projectName.name}, using : ${projectName.type.framework}`);
-        });
-        documentationProjects.forEach( (projectName) => {
-            if( projectName.name && projectName.name.trim() !== "" ) projects[projectName.name] = { type : "documentation" };
-        });
-    }        
-        
-    if (frontendProjects.length > 0) {
-        console.log("Frontend projects: ");
-        frontendProjects.forEach( (projectName) => {
-            console.log(`- ${projectName.name}, using : ${projectName.type.framework}`);
-        });
-        frontendProjects.forEach( (projectName) => {
-            if( projectName.name && projectName.name.trim() !== "" ) projects[projectName.name] = { type : "frontend" };
-        });
-    }
-        
-    if (backendProjects.length > 0) {
-        console.log("Backend projects : ");
-        backendProjects.forEach( (projectName) => {
-            console.log(`- ${projectName.name}, using : ${projectName.type.framework}`);
-        });
-        backendProjects.forEach( (projectName) => {
-            if( projectName.name && projectName.name.trim() !== "" ) projects[projectName.name] = { type : "backend" };
-        });
+    // Backend projects
+    const expressProjects = await getProjectsInSubfolders({
+        type : "backend",
+        framework : "express",
+        packageJsonDependancy : "express"
+    });
+    // Mobile projects
+    const reactNativeProjects = await getProjectsInSubfolders({
+        type : "mobile",
+        framework : "react-native-expo",
+        packageJsonDependancy : "react-native-expo"
+    });
+    const ionicProjects = await getProjectsInSubfolders({
+        type : "mobile",
+        framework : "ionic",
+        packageJsonDependancy : "ionic"
+    });
+
+    // Printing console output for documentation projects, and adding them to the projects object
+    if( Object.keys(docosaurusProjects).length > 0 ) {
+        console.log("Documentations: ")   
+        for ( const project in docosaurusProjects ) {
+            if( project.trim() !== "" && docosaurusProjects[project] ){
+                console.log(`- ${project}, using : ${docosaurusProjects[project].framework}`);
+                projects[project] = docosaurusProjects[project];
+            }
+        }
     }
 
-    console.log("Mobile projects : ");
-    if (mobileProjects.length > 0) {
-        mobileProjects.forEach( (projectName) => {
-            console.log(`- ${projectName.name}, using : ${projectName.type.framework}`);
-        });
-        mobileProjects.forEach( (projectName) => {
-            if( projectName.name && projectName.name.trim() !== "" ) projects[projectName.name] = { type : "mobile" };
-        });
+    // Printing console output for frontend projects, and adding them to the projects object
+    if( Object.keys(reactProjects).length > 0 || Object.keys(nextProjects).length > 0 ) {
+        console.log("Frontend projects: ") 
+        for ( const project in reactProjects ) {
+            if( project.trim() !== "" && reactProjects[project] && !Object.keys(docosaurusProjects).includes(project) ){
+                console.log(`- ${project}, using : ${reactProjects[project].framework}`);
+                projects[project] = reactProjects[project];
+            }
+        }
+        for ( const project in nextProjects ) {
+            if( project.trim() !== "" && nextProjects[project] ){
+                console.log(`- ${project}, using : ${nextProjects[project].framework}`);
+                projects[project] = nextProjects[project];
+            }
+        }
+    }
+
+    // Printing console output for backend projects, and adding them to the projects object
+    if( Object.keys(expressProjects).length > 0 ) {
+        console.log("Backend projects: ")   
+        for ( const project in expressProjects ) {
+            if( project.trim() !== "" && expressProjects[project] ){
+                console.log(`- ${project}, using : ${expressProjects[project].framework}`);
+                projects[project] = expressProjects[project];
+            }
+        }
+    }
+    
+    // Printing console output for mobile projects, and adding them to the projects object
+    if( Object.keys(reactNativeProjects).length > 0 || Object.keys(ionicProjects).length > 0 ) {
+        console.log("Mobile projects: ");
+        for ( const project in reactNativeProjects ) {
+            if( project.trim() !== "" && reactNativeProjects[project] ){
+                console.log(`- ${project}, using : ${reactNativeProjects[project].framework}`);
+                projects[project] = reactNativeProjects[project];
+            }
+        }
+        for ( const project in ionicProjects ) {
+            if( project.trim() !== "" && ionicProjects[project] ){
+                console.log(`- ${project}, using : ${ionicProjects[project].framework}`);
+                projects[project] = ionicProjects[project];
+            }
+        }
     }
 
     return projects;
